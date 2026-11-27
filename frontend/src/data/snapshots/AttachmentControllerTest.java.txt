@@ -1,0 +1,93 @@
+package edu.handong.web11.controller;
+
+import edu.handong.web11.domain.Attachment;
+import edu.handong.web11.repository.AttachmentRepository;
+import edu.handong.web11.service.FileStorageService;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Optional;
+
+import static org.hamcrest.Matchers.startsWith;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+
+class AttachmentControllerTest {
+    @TempDir
+    Path uploadDir;
+    private AttachmentRepository repository;
+    private MockMvc mvc;
+
+    @BeforeEach
+    void setUp() throws Exception {
+        repository = mock(AttachmentRepository.class);
+        mvc = MockMvcBuilders.standaloneSetup(new AttachmentController(repository,
+            new FileStorageService(uploadDir.toString()))).build();
+    }
+
+    @ParameterizedTest
+    @CsvSource({"jpg,image/jpeg", "jpeg,image/jpeg", "png,image/png", "gif,image/gif"})
+    void previewReturnsFileBytesWithImageTypeAndInlineHeader(String extension, String type) throws Exception {
+        byte[] bytes = {1, 2, 3, 4};
+        Files.write(uploadDir.resolve("stored." + extension), bytes);
+        when(repository.findById(1L)).thenReturn(Optional.of(
+            new Attachment("사진." + extension, "stored." + extension, type, bytes.length)));
+
+        mvc.perform(get("/attachments/1/view"))
+            .andExpect(status().isOk())
+            .andExpect(content().contentType(type))
+            .andExpect(header().string("Content-Disposition", startsWith("inline;")))
+            .andExpect(content().bytes(bytes));
+    }
+
+    @Test
+    void unknownIdReturnsNotFound() throws Exception {
+        when(repository.findById(99L)).thenReturn(Optional.empty());
+        mvc.perform(get("/attachments/99/view")).andExpect(status().isNotFound());
+    }
+
+    @Test
+    void missingDiskFileReturnsNotFound() throws Exception {
+        when(repository.findById(1L)).thenReturn(Optional.of(
+            new Attachment("photo.png", "missing.png", "image/png", 10)));
+        mvc.perform(get("/attachments/1/view")).andExpect(status().isNotFound());
+    }
+
+    @Test
+    void pathOutsideUploadDirectoryReturnsNotFound() throws Exception {
+        when(repository.findById(1L)).thenReturn(Optional.of(
+            new Attachment("photo.png", "../outside.png", "image/png", 10)));
+        mvc.perform(get("/attachments/1/view")).andExpect(status().isNotFound());
+    }
+
+    @ParameterizedTest
+    @CsvSource({"abc", "999999999999999999999999999"})
+    void malformedIdReturnsBadRequest(String id) throws Exception {
+        mvc.perform(get("/attachments/" + id + "/view")).andExpect(status().isBadRequest());
+    }
+
+    @ParameterizedTest
+    @CsvSource({"pdf,application/pdf", "txt,text/plain"})
+    void nonImageCannotBePreviewedButCanStillBeDownloaded(String extension, String type) throws Exception {
+        byte[] bytes = {5, 6, 7};
+        Files.write(uploadDir.resolve("stored." + extension), bytes);
+        when(repository.findById(1L)).thenReturn(Optional.of(
+            new Attachment("document." + extension, "stored." + extension, type, bytes.length)));
+
+        mvc.perform(get("/attachments/1/view")).andExpect(status().isUnsupportedMediaType());
+        mvc.perform(get("/attachments/1/download"))
+            .andExpect(status().isOk())
+            .andExpect(content().contentType("application/octet-stream"))
+            .andExpect(header().string("Content-Disposition", startsWith("attachment;")))
+            .andExpect(content().bytes(bytes));
+    }
+}
