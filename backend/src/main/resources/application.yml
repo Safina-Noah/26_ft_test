@@ -1,0 +1,50 @@
+server:
+  port: ${PORT:8080}
+  forward-headers-strategy: framework
+  servlet:
+    session:
+      cookie:
+        http-only: true
+        same-site: lax
+        secure: ${COOKIE_SECURE:false}
+spring:
+  datasource:
+    url: ${DB_URL:jdbc:mariadb://localhost:3306/reponote}
+    username: ${DB_USERNAME:reponote}
+    password: ${DB_PASSWORD:}
+  flyway:
+    enabled: true
+    baseline-on-migrate: ${DB_FLYWAY_BASELINE_ON_MIGRATE:false}
+    baseline-version: 0
+  session:
+    jdbc:
+      initialize-schema: always
+    timeout: 7d
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 6MB
+  security:
+    oauth2:
+      client:
+        registration:
+          github:
+            scope: read:user,repo
+            client-id: ${GITHUB_CLIENT_ID:unconfigured}
+            client-secret: ${GITHUB_CLIENT_SECRET:unconfigured}
+            redirect-uri: ${GITHUB_CALLBACK_URL:http://localhost:5173/login/oauth2/code/github}
+app:
+  frontend-url: ${FRONTEND_URL:http://localhost:5173}
+  token-key: ${TOKEN_ENCRYPTION_KEY:}
+  ai:
+    base-url: ${AI_BASE_URL:https://open.hasa.re.kr/v1}
+    api-key: ${AI_API_KEY:}
+    model: ${AI_MODEL:qwen3-coder}
+    structured: ${AI_STRUCTURED_OUTPUT:false}
+    max-output-tokens: ${AI_MAX_OUTPUT_TOKENS:12000}
+  analysis:
+    max-files: ${ANALYSIS_MAX_FILES:24}
+    max-input-chars: ${ANALYSIS_MAX_INPUT_CHARS:90000}
+    max-file-bytes: ${ANALYSIS_MAX_FILE_BYTES:60000}
+    max-commits: ${ANALYSIS_MAX_COMMITS:20}
+    lease-seconds: 600
