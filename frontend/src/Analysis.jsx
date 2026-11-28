@@ -1,3 +1,4 @@
+import { createPortal } from "react-dom";
 import React, { useId, useRef, useState } from "react";
 import {
   Boxes,
@@ -15,11 +16,12 @@ import {
   Sparkles,
   X,
 } from "lucide-react";
+import { ArchitectureGraph } from "./ArchitectureGraph";
 import { navigate } from "./useWorkspace";
 
-const base = "project/week11_forked";
 const sections = [["", "Overview"]];
 export function Concept({ name, analysis, link = false }) {
+  const base = "project/" + (analysis.projectId || "week11_forked");
   const data = analysis.concepts[name];
   const id = useId();
   const tip = useRef(null);
@@ -37,45 +39,49 @@ export function Concept({ name, analysis, link = false }) {
       <button className="term" popoverTarget={id} onClick={position}>
         {name}
       </button>
-      <span
-        role="dialog"
-        aria-label={name + " 개념 설명"}
-        ref={tip}
-        id={id}
-        popover="auto"
-        className="tip"
-      >
-        <span className="tip-title">
-          <strong>{name}</strong>
-          <button
-            aria-label="개념 설명 닫기"
-            popoverTarget={id}
-            popoverTargetAction="hide"
-          >
-            <X size={16} />
-          </button>
-        </span>
-        <span>{data[0]}</span>
-        <b>프로젝트 적용</b>
-        <span>{data[1]}</span>
-        <details className="question">
-          <summary>면접 꼬리 질문</summary>
-          <strong>{data[2]}</strong>
-          <p>{data[3]}</p>
-        </details>
-        {link && (
-          <a href={"#/" + base + "/feature"}>
-            관련 기능 · 첨부 이미지 미리보기
-          </a>
-        )}
-      </span>
+      {createPortal(
+        <div
+          role="dialog"
+          aria-label={name + " 개념 설명"}
+          ref={tip}
+          id={id}
+          popover="auto"
+          className="tip"
+        >
+          <span className="tip-title">
+            <strong>{name}</strong>
+            <button
+              aria-label="개념 설명 닫기"
+              popoverTarget={id}
+              popoverTargetAction="hide"
+            >
+              <X size={16} />
+            </button>
+          </span>
+          <span>{data[0]}</span>
+          <b>프로젝트 적용</b>
+          <span>{data[1]}</span>
+          <details className="question">
+            <summary>면접 꼬리 질문</summary>
+            <strong>{data[2]}</strong>
+            <p>{data[3]}</p>
+          </details>
+          {link && (
+            <a href={"#/" + base + "/feature"}>
+              관련 기능 · 첨부 이미지 미리보기
+            </a>
+          )}
+        </div>,
+        document.body,
+      )}
     </span>
   );
 }
 function ExplainedText({ text, analysis }) {
-  const names = Object.keys(analysis.concepts).sort(
-    (a, b) => b.length - a.length,
-  );
+  const names = Object.keys(analysis.concepts)
+    .filter(Boolean)
+    .sort((a, b) => b.length - a.length);
+  if (!names.length) return text;
   const parts = text.split(
     new RegExp(
       "(" +
@@ -95,7 +101,22 @@ function ExplainedText({ text, analysis }) {
   );
 }
 function Architecture({ analysis }) {
+  const base = "project/" + (analysis.projectId || "week11_forked");
   const [selected, setSelected] = useState(analysis.architecture[0]);
+  if (analysis.edges)
+    return (
+      <section className="panel wide live-architecture">
+        <div className="kicker">
+          <GitBranch size={15} />
+          ARCHITECTURE
+        </div>
+        <h2>프로그램 구조와 데이터 흐름</h2>
+        <ArchitectureGraph
+          analysis={analysis}
+          explain={(text) => <ExplainedText text={text} analysis={analysis} />}
+        />
+      </section>
+    );
   function node(id) {
     const item = analysis.architecture.find((n) => n.id === id);
     return (
@@ -146,6 +167,8 @@ function Architecture({ analysis }) {
   );
 }
 function Overview({ analysis }) {
+  const base = "project/" + (analysis.projectId || "week11_forked");
+  const ready = key => !analysis.sections?.length || analysis.sections.some(s=>s.section_key===key && s.status==="COMPLETED");
   return (
     <div className="analysis-grid">
       <section className="panel wide">
@@ -154,11 +177,11 @@ function Overview({ analysis }) {
           FEATURES
         </div>
         <h2>프로젝트 주요 기능</h2>
-        <p>
-          이 게시판은 Spring Boot 앱 하나에서 HTML 화면과 파일 응답을
-          제공합니다. 게시글·첨부 정보는 DB에, 파일 본문은 서버 디스크에
-          저장하며 첨부 ID로 둘을 연결합니다.
-        </p>
+        {!ready("overview") && <p>프로젝트 소개와 주요 기능 분석이 완료되면 여기에 표시됩니다.</p>}
+        {ready("overview") && <p>
+          {analysis.overview?.description ||
+            "게시글과 첨부 정보를 DB에 저장하고 실제 파일은 디스크에 저장하는 자료 공유 게시판입니다."}
+        </p>}
         <div className="feature-explanations">
           {analysis.mainFeatures.map((f) => (
             <article className="feature-row" key={f.title}>
@@ -174,14 +197,18 @@ function Overview({ analysis }) {
           ))}
         </div>
       </section>
-      <Architecture analysis={analysis} />
+      {ready("architecture") ? <Architecture analysis={analysis} /> : <section className="panel wide"><h2>프로그램 구조와 데이터 흐름</h2><p>아키텍처 분석이 완료되면 구조도를 표시합니다.</p></section>}
       <section className="panel">
         <div className="kicker">
           <Layers3 size={15} />
           TECH STACK
         </div>
         <h2>프로젝트 기술 스택</h2>
-        <small>언어별 비중 · 샘플 비율</small>
+        <small>
+          {analysis.projectId
+            ? "언어별 비중 · GitHub 수집 통계"
+            : "언어별 비중 · 샘플 비율"}
+        </small>
         <div className="langbar">
           {analysis.languages.map(([name, value], i) => (
             <i
@@ -206,7 +233,14 @@ function Overview({ analysis }) {
           MY CONTRIBUTION
         </div>
         <h2>내가 구현한 기능</h2>
-        <p>첨부 이미지 미리보기 구현을 화면·서버·검증 역할별로 살펴보세요.</p>
+        <p>내 커밋에 연결된 기능과 사용 기술을 살펴보세요.</p>
+        {!ready("contributions") && <p>내 기여 분석이 완료되면 구현 기능과 주요 기술을 기능별로 표시합니다.</p>}
+        {ready("contributions") && !analysis.contributions.length && (
+          <p>
+            수집한 커밋에서 확인할 수 있는 기여가 부족해요. 분석 범위를
+            확인해주세요.
+          </p>
+        )}
         <div className="contribution-cards">
           {analysis.contributions.map((f, index) => (
             <article className="contribution-card" key={f.id}>
@@ -234,28 +268,64 @@ function Overview({ analysis }) {
           INTERVIEW TIPS
         </div>
         <h2>면접 어필 포인트</h2>
-        <div className="twocol">
-          <div>
-            <h3>내가 구현한 부분</h3>
-            <p>
-              <ExplainedText
-                analysis={analysis}
-                text="Content-Disposition과 Content-Type을 함께 설정해 같은 파일을 미리보기와 다운로드로 제공한 과정을 설명해 보세요. 이미지 형식 검사와 실패 응답까지 코드로 연결하면 구현의 범위를 구체적으로 말할 수 있습니다."
-              />
-            </p>
-            <a href={"#/" + base + "/code/java/2"}>미리보기 응답 확인</a>
+        {!ready("interview") && <p>앞선 분석을 모두 완료한 뒤 면접 어필 포인트를 정리합니다.</p>}
+        {ready("interview") && (analysis.interviewTips ? (
+          <div className="twocol">
+            {analysis.interviewTips.map((tip, i) => (
+              <div key={i}>
+                <small>
+                  {tip.scope === "personal" ? "내 구현" : "전체 설계"}
+                </small>
+                <h3>{tip.title}</h3>
+                <p>
+                  <ExplainedText text={tip.description} analysis={analysis} />
+                </p>
+              </div>
+            ))}
           </div>
-          <div>
-            <h3>전체 설계에서 이해한 부분</h3>
+        ) : (
+          <>
+            {" "}
+            <div className="twocol">
+              <div>
+                <h3>내가 구현한 부분</h3>
+                <p>
+                  <ExplainedText
+                    analysis={analysis}
+                    text="Content-Disposition과 Content-Type을 함께 설정해 같은 파일을 미리보기와 다운로드로 제공한 과정을 설명해 보세요. 이미지 형식 검사와 실패 응답까지 코드로 연결하면 구현의 범위를 구체적으로 말할 수 있습니다."
+                  />
+                </p>
+                <a href={"#/" + base + "/code/java/2"}>미리보기 응답 확인</a>
+              </div>
+              <div>
+                <h3>전체 설계에서 이해한 부분</h3>
+                <p>
+                  <ExplainedText
+                    analysis={analysis}
+                    text="MariaDB에는 파일 메타데이터가, 디스크에는 실제 바이트가 있습니다. JPA의 엔티티 삭제가 디스크 파일까지 지우지는 않는 이유와, 두 저장소 사이에서 실패가 발생하면 무엇을 정리해야 하는지 설명해 보세요."
+                  />
+                </p>
+                <a href={"#/" + base + "/code/java/1"}>첨부 조회 코드 확인</a>
+              </div>
+            </div>
+          </>
+        ))}
+        {analysis.coverage && (
+          <details className="coverage">
+            <summary>분석 범위와 확인이 필요한 내용</summary>
             <p>
-              <ExplainedText
-                analysis={analysis}
-                text="MariaDB에는 파일 메타데이터가, 디스크에는 실제 바이트가 있습니다. JPA의 엔티티 삭제가 디스크 파일까지 지우지는 않는 이유와, 두 저장소 사이에서 실패가 발생하면 무엇을 정리해야 하는지 설명해 보세요."
-              />
+              기준 커밋 {analysis.sha} · {analysis.coverage.analysedFileCount}개
+              파일 분석
             </p>
-            <a href={"#/" + base + "/code/java/1"}>첨부 조회 코드 확인</a>
-          </div>
-        </div>
+            <p>{analysis.coverage.note}</p>
+            <p>
+              분석에서 제외한 파일 {analysis.coverage.omittedPaths.length}개
+            </p>
+            {analysis.payload.limitations.map((text, i) => (
+              <p key={i}>{text}</p>
+            ))}
+          </details>
+        )}
       </section>
     </div>
   );
@@ -269,6 +339,8 @@ function Editor({
   analysis,
 }) {
   const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
   const [draft, setDraft] = useState("");
   const current = value ?? initial;
   return (
@@ -299,20 +371,35 @@ function Editor({
           <div className="actions">
             <button
               className="btn primary small"
-              onClick={() => {
-                onSave(draft);
-                setEditing(false);
+              disabled={saving}
+              onClick={async () => {
+                setSaving(true);
+                setError("");
+                try {
+                  await onSave(draft);
+                  setEditing(false);
+                } catch (e) {
+                  setError(e.message);
+                } finally {
+                  setSaving(false);
+                }
               }}
             >
               저장
             </button>
             <button
               className="btn soft small"
+              disabled={saving}
               onClick={() => setEditing(false)}
             >
               취소
             </button>
           </div>
+          {error && (
+            <p role="alert" className="warning">
+              {error}
+            </p>
+          )}
         </>
       ) : (
         <p className="preserve">
@@ -341,12 +428,18 @@ export function Detail({
   state,
   setState,
   notify,
+  onSaveWriting,
 }) {
+  const base = "project/" + p.id;
   const f =
     analysis?.contributions.find((item) => item.id === fileId) ||
     analysis?.feature;
   const key = p.id + "/" + f?.id;
-  function save(group, value) {
+  async function save(group, value) {
+    if (onSaveWriting) {
+      await onSaveWriting(group, key, value);
+      return;
+    }
     setState((prev) => ({
       ...prev,
       [group]: { ...prev[group], [key]: value },
@@ -401,7 +494,7 @@ export function Detail({
           </div>
           {tab === "code" ? (
             <Explorer analysis={analysis} fileId={fileId} rangeId={rangeId} />
-          ) : tab === "feature" ? (
+          ) : tab === "feature" && f ? (
             <div className="analysis-grid">
               <section className="panel wide">
                 <div
@@ -431,13 +524,15 @@ export function Detail({
                   initial={f.summary + "\n\n" + f.technical}
                   onSave={(v) => save("edits", v)}
                 />
-                <a
-                  className="btn primary"
-                  href={"#/" + base + "/code/" + f.code}
-                >
-                  <FileCode2 size={16} />
-                  관련 코드 탐색
-                </a>
+                {f.code && (
+                  <a
+                    className="btn primary"
+                    href={"#/" + base + "/code/" + f.code}
+                  >
+                    <FileCode2 size={16} />
+                    관련 코드 탐색
+                  </a>
+                )}
               </section>
               <section className="panel">
                 <div className="kicker">
@@ -475,9 +570,16 @@ function Scan() {
   return <Code2 size={16} />;
 }
 function Explorer({ analysis, fileId, rangeId }) {
+  const base = "project/" + (analysis.projectId || "week11_forked");
   const file = analysis.files.find((f) => f.id === fileId) || analysis.files[0];
   const range =
-    file.ranges[Number(rangeId)] || file.ranges[file.id === "html" ? 1 : 0];
+    file?.ranges[Number(rangeId)] || file?.ranges[file.id === "html" ? 1 : 0];
+  if (!file || !range)
+    return (
+      <section className="panel">
+        <p>이 분석 버전에는 코드 해설이 없어요.</p>
+      </section>
+    );
   const lines = file.code
     .replace(/\r/g, "")
     .split("\n")

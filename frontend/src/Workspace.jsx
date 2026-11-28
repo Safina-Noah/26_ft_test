@@ -66,7 +66,7 @@ export function Header({ page, profile }) {
     </header>
   );
 }
-function Cover({ p }) {
+export function Cover({ p }) {
   const Icon = { image: Image, calendar: CalendarDays, journal: NotebookPen }[
     p.art
   ];
