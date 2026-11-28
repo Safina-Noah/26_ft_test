@@ -6,5 +6,5 @@ RUN sed -i 's/\r$//' gradlew \
 
 FROM eclipse-temurin:21-jre
 WORKDIR /app
-COPY --from=build /app/build/libs/reponote-0.1.0.jar app.jar
+COPY --from=build /app/build/libs/app.jar app.jar
 ENTRYPOINT ["java", "-jar", "app.jar"]

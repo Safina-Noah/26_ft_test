@@ -24,3 +24,6 @@ dependencies {
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 tasks.named('test') { useJUnitPlatform() }
+
+// Stable executable JAR name for container deployments.
+tasks.named('bootJar') { archiveFileName = 'app.jar' }
