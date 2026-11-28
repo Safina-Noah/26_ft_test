@@ -418,4 +418,36 @@ class WorkspaceIntegrationTest {
     jdbc.update(
         "UPDATE analysis_jobs SET next_run=DATEADD('DAY',1,CURRENT_TIMESTAMP) WHERE id=?", id);
   }
+
+  @Test
+  void signInAlwaysOffersAccountSelectionAndKeepsPkceAndState() throws Exception {
+    var response =
+        mvc.perform(get("/oauth2/authorization/github"))
+            .andExpect(status().is3xxRedirection())
+            .andReturn()
+            .getResponse();
+    assertThat(response.getHeader("Location"))
+        .startsWith("https://github.com/login/oauth/authorize?")
+        .contains(
+            "prompt=select_account", "code_challenge=", "code_challenge_method=S256", "state=");
+  }
+
+  @Test
+  void identityComesFromEachSessionAndLogoutInvalidatesIt() throws Exception {
+    long owner = account(), other = account();
+    Cookie ownerCookie = session(owner);
+    mvc.perform(get("/api/me").cookie(ownerCookie))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.profile.id").value(owner));
+    mvc.perform(get("/api/me").cookie(session(other)))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.profile.id").value(other));
+    mvc.perform(post("/api/logout").cookie(ownerCookie)).andExpect(status().isForbidden());
+    mvc.perform(post("/api/logout").cookie(ownerCookie).with(csrf()))
+        .andExpect(status().isNoContent());
+    mvc.perform(get("/api/me").cookie(ownerCookie))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.authenticated").value(false));
+    mvc.perform(get("/api/projects").cookie(ownerCookie)).andExpect(status().isUnauthorized());
+  }
 }

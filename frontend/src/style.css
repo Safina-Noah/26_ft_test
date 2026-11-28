@@ -1847,3 +1847,7 @@ footer span:not(.brandmark):not(.branddot) {
 .progress-intro { font-size:14px; margin-top:0; }
 .section-count { font-size:13px; color:#7555be; }
 .job-row .analysis-progress { width:100%; }
+
+.account-actions { display:flex; align-items:center; gap:12px; margin-left:auto; }
+.account-actions .account { margin-left:0; }
+@media(max-width:650px) { .account-actions { gap:6px; } .account-actions .account { padding:8px; } }

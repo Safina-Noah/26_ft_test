@@ -34,7 +34,7 @@ export function Brand({ staticBrand = false }) {
     </Tag>
   );
 }
-export function Header({ page, profile }) {
+export function Header({ page, profile, onLogout, loggingOut = false }) {
   const onboarding = ["setup", "select", "add"].includes(page);
   return (
     <header className="top">
@@ -56,10 +56,13 @@ export function Header({ page, profile }) {
                 </a>
               ))}
             </nav>
+            <div className="account-actions">
             <a className="account" href="#/setup">
               <Github size={17} />
               <span>{profile?.name || "GitHub 연결"}</span>
             </a>
+            {onLogout && <button className="text-button" disabled={loggingOut} onClick={onLogout}>{loggingOut ? "로그아웃 중…" : "로그아웃"}</button>}
+            </div>
           </>
         )}
       </div>

@@ -53,7 +53,7 @@ function Login() {
     </main>
   );
 }
-function Profile({ profile, onDone }) {
+function Profile({ profile, onDone, onLogout, loggingOut }) {
   const [name, setName] = useState(profile.name);
   const [file, setFile] = useState(null);
   const [error, setError] = useState("");
@@ -62,6 +62,7 @@ function Profile({ profile, onDone }) {
     <main className="narrow">
       <h1>프로필 확인</h1>
       <p>GitHub 계정 {profile.login}에 연결됐어요.</p>
+      <button className="btn soft small" disabled={loggingOut} onClick={onLogout}>로그아웃하고 다른 계정으로 연결</button>
       <form
         className="panel form"
         onSubmit={async (e) => {
@@ -110,7 +111,7 @@ function Profile({ profile, onDone }) {
     </main>
   );
 }
-function RepositoryPicker({ projects, onDone }) {
+function RepositoryPicker({ projects, onDone, onLogout, loggingOut, login }) {
   const [items, setItems] = useState([]);
   const [selected, setSelected] = useState([]);
   const [query, setQuery] = useState("");
@@ -141,7 +142,8 @@ function RepositoryPicker({ projects, onDone }) {
     <main className="narrow">
       <div className="kicker">REPOSITORIES</div>
       <h1>복습할 레포 선택</h1>
-      <p>GitHub 계정으로 접근 가능한 개인·팀 레포를 선택하세요.</p>
+      <p>{login} 계정으로 접근 가능한 개인·팀 레포를 선택하세요.</p>
+      <button className="btn soft small" disabled={loggingOut} onClick={onLogout}>로그아웃하고 다른 계정으로 연결</button>
       <section className="panel form">
         <details className="repo-dropdown">
           <summary>레포 선택 · {selected.length}개 선택됨</summary>
@@ -594,6 +596,20 @@ export default function LiveApp() {
   const requestedVersion =
     new URLSearchParams(query || "").get("version") || "";
   const [profile, setProfile] = useState(null);
+  const [loggingOut, setLoggingOut] = useState(false);
+  async function logout() {
+    if (loggingOut) return;
+    setLoggingOut(true);
+    try {
+      await request("/logout", {method: "POST"});
+      // A new page clears in-memory CSRF, profile, repository and analysis state together.
+      window.location.replace("/#/setup");
+      window.location.reload();
+    } catch (e) {
+      setError(e.message);
+      setLoggingOut(false);
+    }
+  }
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -648,6 +664,8 @@ export default function LiveApp() {
     content = (
       <Profile
         profile={profile}
+        onLogout={logout}
+        loggingOut={loggingOut}
         onDone={async () => {
           await refresh();
           navigate(projects.length ? "home" : "select");
@@ -658,6 +676,9 @@ export default function LiveApp() {
     content = (
       <RepositoryPicker
         key={effective}
+        login={profile.login}
+        onLogout={logout}
+        loggingOut={loggingOut}
         projects={projects}
         onDone={async () => {
           await refresh();
@@ -690,6 +711,8 @@ export default function LiveApp() {
       <Header
         page={effective === "profile" ? "setup" : effective}
         profile={profile}
+        onLogout={profile ? logout : undefined}
+        loggingOut={loggingOut}
       />
       {error && (
         <div className="wrap">

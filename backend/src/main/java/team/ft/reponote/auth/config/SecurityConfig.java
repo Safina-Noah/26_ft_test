@@ -23,7 +23,12 @@ public class SecurityConfig {
       throws Exception {
     var resolver =
         new DefaultOAuth2AuthorizationRequestResolver(registrations, "/oauth2/authorization");
-    resolver.setAuthorizationRequestCustomizer(OAuth2AuthorizationRequestCustomizers.withPkce());
+    resolver.setAuthorizationRequestCustomizer(
+        OAuth2AuthorizationRequestCustomizers.withPkce()
+            .andThen(
+                builder ->
+                    builder.additionalParameters(
+                        parameters -> parameters.put("prompt", "select_account"))));
     http.authorizeHttpRequests(
             a ->
                 a.requestMatchers(
